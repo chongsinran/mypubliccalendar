@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Event Calendar</title>
+
+    <!-- Montserrat -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet" />
+
+    <!-- FullCalendar v6 -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+
+    <!-- Moment -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment-timezone@0.5.33/builds/moment-timezone-with-data.min.js"></script>
+
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="filter-container">
+      <h3>Filter by Status</h3>
+            <div class="filter-options">
+              <label><input type="checkbox" id="select-all-filters"> Select All</label>
+            </div>
+    </div>
+
+    <div id="calendar"></div>
+
+   
+    <!-- View/Edit Event Modal -->
+    <div id="eventModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <h2 id="modalTitle">Event Details</h2>
+          </div>
+          <button class="close-button" aria-label="Close modal">&times;</button>
+        </div>
+
+        <div class="modal-container">
+          <form id="eventForm" class="modal-body">
+            <div class="modal-grid">
+              <div class="field-group field--full">
+                <label for="eventTitle">Title</label>
+                <input type="text" id="eventTitle" required />
+              </div>
+
+              <div class="field-group">
+                <label for="eventStart">Start Date</label>
+                <input type="date" id="eventStart" required />
+              </div>
+
+              <div class="field-group">
+                <label for="eventEnd">End Date</label>
+                <input type="date" id="eventEnd" />
+              </div>
+
+              <div class="field-group field--full">
+                <label for="eventDescription">Description</label>
+                <textarea id="eventDescription" rows="3" placeholder="Optional notes, links or details..."></textarea>
+              </div>
+
+              <div class="field-group field--full">
+                <label>Status</label>
+                <div class="status-picker">
+                  <button type="button" class="status-option" data-status="pending">
+                    <span class="status-chip is-pending">Pending</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="status-option" data-status="in-progress">
+                    <span class="status-chip is-progress">In Progress</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="status-option" data-status="completed">
+                    <span class="status-chip is-completed">Completed</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="status-option" data-status="bugged">
+                    <span class="status-chip is-bugged">Bugged</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="status-option" data-status="announcement">
+                    <span class="status-chip is-announcement">Announcement</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="status-option" data-status="scheduled-task">
+                    <span class="status-chip is-scheduled-task">Scheduled Task</span>
+                    <span class="tick">✔</span>
+                  </button>                </div>
+              </div>
+            </div>
+          </form>
+          <div class="modal-footer">
+            <button type="button" id="deleteEventButton" class="btn-danger">Delete</button>
+            <div class="flex-grow"></div>
+            <button type="button" class="btn-secondary close-button">Cancel</button>
+            <button type="submit" form="eventForm" class="btn-primary">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="addEventButton">+ Event / Task</button>
+
+    <footer class="page-footer">
+      <p>&copy; <span id="currentYear"></span> Project Calendar. All rights reserved.</p>
+    </footer>
+
+    <!-- Telegram Config Modal -->
+    <div id="telegramModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="telegramModalTitle">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="telegramModalTitle">Telegram Configuration</h2>
+          <button class="close-button" aria-label="Close modal">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="field-group">
+            <label for="botToken">Bot Token</label>
+            <input type="text" id="botToken" placeholder="Enter your Telegram bot token">
+          </div>
+          <div class="field-group">
+            <label for="chatId">Chat ID</label>
+            <input type="text" id="chatId" placeholder="Enter your Telegram chat ID">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="getChatIdButton" class="btn-secondary">Get Latest Chat ID</button>
+          <button type="button" id="testSendButton" class="btn-secondary">Test Send</button>
+          <div class="flex-grow"></div>
+          <button type="button" id="saveTelegramConfig" class="btn-primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="telegramConfigButton" class="btn-secondary" style="position: fixed; bottom: 24px; left: 24px;">Telegram Config</button>
+    <button id="checkDueTasksButton" class="btn-primary" style="position: fixed; bottom: 70px; left: 24px;">Check Due Tasks</button>
+
+
+
+  </body>
+</html>
