@@ -1,7 +1,3 @@
-CREATE DATABASE project_calendar;
-
-\c project_calendar;
-
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,

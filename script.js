@@ -104,7 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
     events: function(fetchInfo, successCallback, failureCallback) {
       const selectedStatuses = Array.from(document.querySelectorAll('.status-filter:checked')).map(cb => cb.value);
       const statusesQuery = selectedStatuses.map(s => `statuses[]=${s}`).join('&');
-      fetch(`http://localhost:5001/events?${statusesQuery}`)
+      fetch(`/events?${statusesQuery}`)
         .then(r => r.json())
         .then(data => {
           console.log('Data from server:', data);
@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
         end_date: subOneDay(end ? toYMD(end) : toYMD(start)), // exclusive -> inclusive
         status: extendedProps.status
       };
-      fetch(`http://localhost:5001/events/${id}`, {
+      fetch(`/events/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
         end_date: subOneDay(toYMD(end)), // exclusive -> inclusive
         status: extendedProps.status
       };
-      fetch(`http://localhost:5001/events/${id}`, {
+      fetch(`/events/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),
@@ -231,7 +231,7 @@ document.addEventListener('DOMContentLoaded', function() {
       status
     };
   
-    let url = 'http://localhost:5001/events';
+    let url = '/events';
     let method = 'POST';
     if (currentEvent) {
       url += `/${currentEvent.id}`;
