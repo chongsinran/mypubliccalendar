@@ -1,18 +1,22 @@
 version: '3.8'
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "5001:5001"
     depends_on:
       - db
     restart: always
     environment:
-      - DB_USER=postgres
-      - DB_PASSWORD=123123123
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_DATABASE=project_calendar
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_DATABASE=${DB_DATABASE}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
 
   db:
     image: postgres:14
@@ -23,4 +27,4 @@ services:
       - POSTGRES_DB=project_calendar
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
-      - ./database.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./src/models/database.sql:/docker-entrypoint-initdb.d/init.sql

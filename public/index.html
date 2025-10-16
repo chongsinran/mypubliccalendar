@@ -22,10 +22,18 @@
   </head>
   <body>
     <div class="filter-container">
-      <h3>Filter by Status</h3>
-            <div class="filter-options">
-              <label><input type="checkbox" id="select-all-filters"> Select All</label>
-            </div>
+      <div class="filter-header" style="margin-bottom: 20px;">
+        <div style="font-size: 18px; font-weight: 700; ">Filter by Status</div>
+      
+        <div>
+          <button id="telegramConfigButton" class="telegram-config-button btn-animated-gradient-1" style=" font-size: 10px;">Telegram Config</button>
+          <button id="checkDueTasksButton" class="check-due-tasks-button btn-animated-gradient-2" style="  font-size: 10px;">Check Due Tasks</button>
+        </div>
+        
+      </div>
+      <div class="filter-options">
+        <label><input type="checkbox" id="select-all-filters"> Select All</label>
+      </div>
     </div>
 
     <div id="calendar"></div>
@@ -106,6 +114,10 @@
 
     <button id="addEventButton">+ Event / Task</button>
 
+    <div style="display: flex;width: 100%; margin-top:50px; justify-content: center;">
+      <button id="logoutButton" class="btn-danger"  >Logout</button>
+    </div>
+    
     <footer class="page-footer">
       <p>&copy; <span id="currentYear"></span> Project Calendar. All rights reserved.</p>
     </footer>
@@ -136,10 +148,31 @@
       </div>
     </div>
 
-    <button id="telegramConfigButton" class="btn-secondary" style="position: fixed; bottom: 24px; left: 24px;">Telegram Config</button>
-    <button id="checkDueTasksButton" class="btn-primary" style="position: fixed; bottom: 70px; left: 24px;">Check Due Tasks</button>
+   
 
-
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loginModalTitle">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="loginModalTitle">Login</h2>
+        </div>
+        <div class="modal-body">
+          <form id="loginForm">
+            <div class="field-group">
+              <label for="username">Username</label>
+              <input type="text" id="username" required>
+            </div>
+            <div class="field-group">
+              <label for="password">Password</label>
+              <input type="password" id="password" required>
+            </div>
+            <div class="modal-footer">
+              <button type="submit" class="btn-primary">Login</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
 
   </body>
 </html>

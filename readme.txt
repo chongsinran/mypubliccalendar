@@ -5,7 +5,7 @@ This project is a full-stack web application that provides a calendar for projec
 Features:
 - Add, edit, and delete events.
 - View event details.
-- Update event status (pending, in-progress, completed).
+- Update event status (pending, in-progress, completed, bugged, announcement, scheduled-task).
 - Different colors for different statuses.
 - Drag and drop events to change their dates.
 - Resize events to extend or shorten their duration.
@@ -13,8 +13,9 @@ Features:
 - All-day events (no time component).
 - Start date cannot be after end date.
 - Time is not displayed in the calendar view.
-- Fixed: When updating the status of an event, the end date is no longer shifted one day earlier upon refresh.
 - Daily Telegram notifications for due tasks.
+- JWT authentication for all API endpoints.
+- Login modal for user authentication.
 
 Database Schema:
 
@@ -32,6 +33,7 @@ Database Schema:
 - chat_id: VARCHAR(255) NOT NULL
 
 Backend API Endpoints:
+- POST /login: Login to the application.
 - GET /events: Get all events.
 - POST /events: Create a new event.
 - PUT /events/:id: Update an event.

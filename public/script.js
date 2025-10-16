@@ -23,12 +23,12 @@ document.addEventListener('DOMContentLoaded', function() {
     return ymd ? moment(ymd, 'YYYY-MM-DD').subtract(1, 'day').format('YYYY-MM-DD') : null;
   }
   const statusColors = {
-    'pending':    '#f4c28b', // soft peach
-    'in-progress':'#a4cafe', // soft blue
-    'completed':  '#5fc8a7',  // soft teal
-    'bugged':     '#ef6b78',   // soft red
-    'announcement': '#a855f7', // purple
-    'scheduled-task': '#4b5563' // soft black
+    'pending':    '#FFC107', // Amber
+    'in-progress':'#03A9F4', // Light Blue
+    'completed':  '#4CAF50',  // Green
+    'bugged':     '#F44336',   // Red
+    'announcement': '#9C27B0', // Purple
+    'scheduled-task': '#000000' // Black
   };
 
   const filterOptions = document.querySelector('.filter-options');
@@ -40,9 +40,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const color = statusColors[status];
     const option = document.createElement('label');
     const isChecked = savedStatuses ? savedStatuses.includes(status) : true;
+    const statusText = status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ');
     option.innerHTML = `
       <input type="checkbox" class="status-filter" value="${status}" ${isChecked ? 'checked' : ''} style="display: none;">
-      <span class="status-chip is-${status} ${isChecked ? '' : 'selected'}">${status.charAt(0).toUpperCase() + status.slice(1).replace('-', ' ')}</span>
+      <span class="status-chip is-${status} ${!isChecked ? 'selected' : ''}"><span class="status-text">${statusText}${isChecked ? ' ✓' : ''}</span></span>
     `;
     filterOptions.appendChild(option);
   }
@@ -71,6 +72,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.target.classList.contains('status-filter')) {
       const chip = e.target.nextElementSibling;
       chip.classList.toggle('selected', !e.target.checked);
+      const statusText = chip.querySelector('.status-text');
+      if (e.target.checked) {
+        statusText.textContent += ' ✓';
+      } else {
+        statusText.textContent = statusText.textContent.replace(' ✓', '');
+      }
       updateSelectAllCheckbox();
       const selectedStatuses = Array.from(document.querySelectorAll('.status-filter:checked')).map(cb => cb.value);
       localStorage.setItem('calendar_filters', JSON.stringify(selectedStatuses));
@@ -89,6 +96,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
   updateSelectAllCheckbox();
 
+  function fetchWithToken(url, options = {}) {
+    const token = localStorage.getItem('token');
+    const headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`,
+    };
+    return fetch(url, { ...options, headers });
+  }
+
   let calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
     editable: true,
@@ -104,8 +120,8 @@ document.addEventListener('DOMContentLoaded', function() {
     events: function(fetchInfo, successCallback, failureCallback) {
       const selectedStatuses = Array.from(document.querySelectorAll('.status-filter:checked')).map(cb => cb.value);
       const statusesQuery = selectedStatuses.map(s => `statuses[]=${s}`).join('&');
-      fetch(`/events?${statusesQuery}`)
-        .then(r => r.json())
+      fetchWithToken(`/events?${statusesQuery}`)
+        .then(response => response.json())
         .then(data => {
           console.log('Data from server:', data);
           const events = data.map(evt => ({
@@ -161,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
         end_date: subOneDay(end ? toYMD(end) : toYMD(start)), // exclusive -> inclusive
         status: extendedProps.status
       };
-      fetch(`/events/${id}`, {
+      fetchWithToken(`/events/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),
@@ -176,7 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
         end_date: subOneDay(toYMD(end)), // exclusive -> inclusive
         status: extendedProps.status
       };
-      fetch(`/events/${id}`, {
+      fetchWithToken(`/events/${id}`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload),
@@ -238,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
       method = 'PUT';
     }
   
-    await fetch(url, {
+    await fetchWithToken(url, {
       method,
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify(eventData),
@@ -267,7 +283,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   telegramConfigButton.onclick = async function() {
     try {
-      const response = await fetch('/telegram-config');
+      const response = await fetchWithToken('/telegram-config');
       const config = await response.json();
       document.getElementById('botToken').value = config.bot_token || '';
       document.getElementById('chatId').value = config.chat_id || '';
@@ -285,7 +301,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const botToken = document.getElementById('botToken').value;
     const chatId = document.getElementById('chatId').value;
     try {
-      const response = await fetch('/telegram-config', {
+      const response = await fetchWithToken('/telegram-config', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ botToken, chatId }),
@@ -305,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     try {
-      const response = await fetch(`/latest-chat-id?botToken=${botToken}`);
+      const response = await fetchWithToken(`/latest-chat-id?botToken=${botToken}`);
       const data = await response.json();
       if (data.chatId) {
         document.getElementById('chatId').value = data.chatId;
@@ -325,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
     try {
-      const response = await fetch('/test-telegram', {
+      const response = await fetchWithToken('/test-telegram', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ botToken, chatId }),
@@ -337,9 +353,48 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
+  const loginModal = document.getElementById('loginModal');
+  const loginForm = document.getElementById('loginForm');
+
+  // Check if the user is already logged in
+  const token = localStorage.getItem('token');
+  if (!token) {
+    loginModal.style.display = 'block';
+  } else {
+    calendar.render();
+  }
+
+  loginForm.onsubmit = async function(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    const response = await fetch('/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (response.ok) {
+      const { token } = await response.json();
+      localStorage.setItem('token', token);
+      loginModal.style.display = 'none';
+      calendar.render();
+      calendar.refetchEvents();
+    } else {
+      alert('Invalid username or password');
+    }
+  }
+
+  const logoutButton = document.getElementById('logoutButton');
+  logoutButton.onclick = function() {
+    localStorage.removeItem('token');
+    location.reload();
+  }
+
   checkDueTasksButton.onclick = async function() {
     try {
-      const response = await fetch('/check-due-tasks', {
+      const response = await fetchWithToken('/check-due-tasks', {
         method: 'POST',
       });
       const data = await response.json();
