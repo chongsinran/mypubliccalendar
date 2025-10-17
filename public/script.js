@@ -10,6 +10,13 @@ document.addEventListener('DOMContentLoaded', function() {
   const todaySummaryTotal = document.getElementById('todaySummaryTotal');
   const weekSummaryGrid = document.getElementById('weekSummaryGrid');
   const loginModal = document.getElementById('loginModal');
+  let hasAuthError = false;
+  let tokenExpiryTimer = null;
+  let refreshInFlight = null;
+  let lastRefreshAttemptAt = 0;
+  let lastRefreshSucceeded = true;
+  const REFRESH_LEEWAY_MS = 5000;
+  const MIN_REFRESH_INTERVAL_MS = 2000;
   const TASK_STATUSES = [
     { value: 'pending', label: 'Pending' },
     { value: 'in-progress', label: 'In Progress' },
@@ -22,6 +29,247 @@ document.addEventListener('DOMContentLoaded', function() {
     { value: 'scheduled', label: 'Scheduled' },
     { value: 'announcement', label: 'Announcement' },
   ];
+  const globalLoadingOverlay = document.getElementById('globalLoading');
+  let activeLoadingRequests = 0;
+
+  function updateLoadingOverlay() {
+    if (!globalLoadingOverlay) return;
+    if (activeLoadingRequests > 0) {
+      globalLoadingOverlay.classList.add('visible');
+      globalLoadingOverlay.setAttribute('aria-hidden', 'false');
+    } else {
+      globalLoadingOverlay.classList.remove('visible');
+      globalLoadingOverlay.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function startLoading() {
+    activeLoadingRequests += 1;
+    updateLoadingOverlay();
+  }
+
+  function stopLoading() {
+    activeLoadingRequests = Math.max(0, activeLoadingRequests - 1);
+    updateLoadingOverlay();
+  }
+
+  function collapseContent(content, panel, trigger) {
+    if (!content || content.dataset.collapsed === 'true') return;
+    const startHeight = content.scrollHeight;
+    content.dataset.collapsed = 'true';
+    content.setAttribute('aria-hidden', 'true');
+    content.style.maxHeight = `${startHeight}px`;
+    trigger.setAttribute('aria-expanded', 'false');
+    if (panel) panel.classList.add('is-collapsed');
+    requestAnimationFrame(() => {
+      content.classList.add('is-collapsed');
+      content.style.maxHeight = '0px';
+    });
+  }
+
+  function expandContent(content, panel, trigger) {
+    if (!content || content.dataset.collapsed !== 'true') return;
+    content.dataset.collapsed = 'false';
+    content.classList.remove('is-collapsed');
+    content.setAttribute('aria-hidden', 'false');
+    const targetHeight = content.scrollHeight;
+    content.style.maxHeight = `${targetHeight}px`;
+    trigger.setAttribute('aria-expanded', 'true');
+    if (panel) panel.classList.remove('is-collapsed');
+    let fallbackTimeout;
+    const handleTransitionEnd = (event) => {
+      if (event && event.target !== content) return;
+      if (content.dataset.collapsed === 'false') {
+        content.style.maxHeight = '';
+      }
+      content.removeEventListener('transitionend', handleTransitionEnd);
+      clearTimeout(fallbackTimeout);
+    };
+    fallbackTimeout = setTimeout(() => handleTransitionEnd(), 400);
+    content.addEventListener('transitionend', handleTransitionEnd);
+  }
+
+  function initCollapsiblePanels() {
+    const triggers = document.querySelectorAll('[data-collapsible-trigger]');
+    triggers.forEach(trigger => {
+      const contentId = trigger.dataset.collapsibleTrigger;
+      if (!contentId) return;
+      const content = document.getElementById(contentId);
+      if (!content) return;
+      const panel = trigger.closest('.panel');
+      content.dataset.collapsed = 'false';
+      content.classList.remove('is-collapsed');
+      content.style.maxHeight = '';
+      content.setAttribute('aria-hidden', 'false');
+      trigger.setAttribute('aria-expanded', 'true');
+      if (panel) panel.classList.remove('is-collapsed');
+      trigger.addEventListener('click', () => {
+        const isCollapsed = content.dataset.collapsed === 'true';
+        if (isCollapsed) {
+          expandContent(content, panel, trigger);
+        } else {
+          collapseContent(content, panel, trigger);
+        }
+      });
+    });
+  }
+
+  function decodeJwtPayload(token) {
+    try {
+      const segments = token.split('.');
+      if (segments.length < 2) return null;
+      const base64Url = segments[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      const jsonPayload = atob(padded);
+      return JSON.parse(jsonPayload);
+    } catch (error) {
+      console.error('Failed to decode token payload', error);
+      return null;
+    }
+  }
+
+  function clearTokenExpiryTimer() {
+    if (tokenExpiryTimer) {
+      clearTimeout(tokenExpiryTimer);
+      tokenExpiryTimer = null;
+    }
+  }
+
+  async function revokeRefreshToken(refreshToken) {
+    if (!refreshToken) return;
+    startLoading();
+    try {
+      await fetch('/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+    } catch (error) {
+      console.error('Failed to revoke refresh token', error);
+    } finally {
+      stopLoading();
+    }
+  }
+
+  function clearStoredTokens() {
+    clearTokenExpiryTimer();
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+  }
+
+  function scheduleTokenExpiryCheck(token) {
+    clearTokenExpiryTimer();
+    if (!token) return;
+    const decodedPayload = decodeJwtPayload(token);
+    if (!decodedPayload || !decodedPayload.exp) return;
+    const expiresAtMs = Number(decodedPayload.exp) * 1000;
+    const now = Date.now();
+    const millisUntilExpiry = expiresAtMs - now;
+    if (!(millisUntilExpiry > 0)) {
+      promptReLogin();
+      return;
+    }
+    let refreshDelay;
+    if (millisUntilExpiry <= REFRESH_LEEWAY_MS + 1000) {
+      refreshDelay = Math.max(millisUntilExpiry - 1000, 1000);
+    } else {
+      refreshDelay = millisUntilExpiry - REFRESH_LEEWAY_MS;
+    }
+    if (!(refreshDelay > 0)) {
+      refreshDelay = 1000;
+    }
+    tokenExpiryTimer = setTimeout(async () => {
+      const didRefresh = await attemptTokenRefresh();
+      if (!didRefresh) {
+        promptReLogin();
+      }
+    }, refreshDelay);
+  }
+
+  function storeTokens({ token, refreshToken }) {
+    if (!token || !refreshToken) {
+      console.error('Missing token payload; clearing session');
+      clearStoredTokens();
+      throw new Error('Missing token payload');
+    }
+    hasAuthError = false;
+    localStorage.setItem('token', token);
+    localStorage.setItem('refreshToken', refreshToken);
+    scheduleTokenExpiryCheck(token);
+  }
+
+  async function attemptTokenRefresh() {
+    if (refreshInFlight) {
+      return refreshInFlight;
+    }
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+      return false;
+    }
+    const now = Date.now();
+    if (now - lastRefreshAttemptAt < MIN_REFRESH_INTERVAL_MS) {
+      return lastRefreshSucceeded;
+    }
+    lastRefreshAttemptAt = now;
+    const refreshPromise = (async () => {
+      const tokenForRevocation = refreshToken;
+      startLoading();
+      try {
+        const response = await fetch('/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: tokenForRevocation }),
+        });
+        if (!response.ok) {
+          clearStoredTokens();
+          await revokeRefreshToken(tokenForRevocation);
+          lastRefreshSucceeded = false;
+          return false;
+        }
+        const payload = await response.json();
+        if (!payload.token || !payload.refreshToken) {
+          clearStoredTokens();
+          await revokeRefreshToken(tokenForRevocation);
+          lastRefreshSucceeded = false;
+          return false;
+        }
+        storeTokens(payload);
+        lastRefreshSucceeded = true;
+        return true;
+      } catch (error) {
+        console.error('Failed to refresh session', error);
+        clearStoredTokens();
+        await revokeRefreshToken(tokenForRevocation);
+        lastRefreshSucceeded = false;
+        return false;
+      } finally {
+        stopLoading();
+        refreshInFlight = null;
+        lastRefreshAttemptAt = Date.now();
+      }
+    })();
+    refreshInFlight = refreshPromise;
+    return refreshPromise;
+  }
+
+  function promptReLogin() {
+    if (hasAuthError) return;
+    hasAuthError = true;
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    clearStoredTokens();
+    if (storedRefreshToken) {
+      revokeRefreshToken(storedRefreshToken);
+    }
+    const addEventButtonEl = document.getElementById('addEventButton');
+    if (addEventButtonEl) {
+      addEventButtonEl.style.display = 'none';
+    }
+    if (loginModal) {
+      loginModal.style.display = 'flex';
+    }
+    alert('Please log in again to continue.');
+  }
 
   function formatStatusLabel(status) {
     const match = TASK_STATUSES.find(s => s.value === status);
@@ -368,13 +616,46 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  function fetchWithToken(url, options = {}) {
-    const token = localStorage.getItem('token');
-    const headers = {
-      ...options.headers,
-      'Authorization': `Bearer ${token}`,
-    };
-    return fetch(url, { ...options, headers });
+  async function fetchWithToken(url, options = {}, allowRetry = true) {
+    startLoading();
+    let token = localStorage.getItem('token');
+    try {
+      if (!token) {
+        const refreshed = await attemptTokenRefresh();
+        if (refreshed) {
+          token = localStorage.getItem('token');
+        }
+      }
+      if (!token) {
+        promptReLogin();
+        throw new Error('Authentication required');
+      }
+
+      const baseHeaders = options.headers ? { ...options.headers } : {};
+      const headers = {
+        ...baseHeaders,
+        'Authorization': `Bearer ${token}`,
+      };
+
+      const response = await fetch(url, { ...options, headers });
+      if ((response.status === 401 || response.status === 403) && allowRetry) {
+        const refreshed = await attemptTokenRefresh();
+        if (refreshed) {
+          const retriedResponse = await fetchWithToken(url, options, false);
+          return retriedResponse;
+        }
+      }
+      if (response.status === 401 || response.status === 403) {
+        promptReLogin();
+        const unauthorizedError = new Error(`Unauthorized: ${response.status}`);
+        unauthorizedError.response = response;
+        throw unauthorizedError;
+      }
+
+      return response;
+    } finally {
+      stopLoading();
+    }
   }
 
   let calendar = new FullCalendar.Calendar(calendarEl, {
@@ -512,12 +793,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const deleteEventButton = document.getElementById('deleteEventButton');
 
   deleteEventButton.onclick = async function() {
-    if (currentEvent) {
+    if (!currentEvent) return;
+    try {
       await fetchWithToken(`/events/${currentEvent.id}`, {
         method: 'DELETE',
       });
       calendar.refetchEvents();
       closeModal(addEventModal);
+    } catch (error) {
+      console.error('Failed to delete event', error);
     }
   }
 
@@ -554,12 +838,17 @@ document.addEventListener('DOMContentLoaded', function() {
       method = 'PUT';
     }
   
-    await fetchWithToken(url, {
-      method,
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(eventData),
-    });
-  
+    try {
+      await fetchWithToken(url, {
+        method,
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(eventData),
+      });
+    } catch (error) {
+      console.error('Failed to save event', error);
+      return;
+    }
+
     calendar.refetchEvents();
     closeModal(addEventModal);
   };
@@ -582,7 +871,7 @@ document.addEventListener('DOMContentLoaded', function() {
   addEventButton.style.display = 'none';
 
   const loginForm = document.getElementById('loginForm');
- const checkDueTasksButton = document.getElementById('checkDueTasksButton');
+  const checkDueTasksButton = document.getElementById('checkDueTasksButton');
   const telegramConfigButton = document.getElementById('telegramConfigButton');
   const telegramModal = document.getElementById('telegramModal');
   const getChatIdButton = document.getElementById('getChatIdButton');
@@ -591,11 +880,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Check if the user is already logged in
   const token = localStorage.getItem('token');
-  if (!token) {
-    loginModal.style.display = 'flex';
-  } else {
+  const refreshToken = localStorage.getItem('refreshToken');
+
+  const completeLogin = () => {
     addEventButton.style.display = 'block';
     calendar.refetchEvents();
+  };
+
+  if (!refreshToken) {
+    clearStoredTokens();
+    loginModal.style.display = 'flex';
+  } else if (!token) {
+    attemptTokenRefresh().then(didRefresh => {
+      if (didRefresh) {
+        completeLogin();
+      } else {
+        loginModal.style.display = 'flex';
+      }
+    });
+  } else {
+    hasAuthError = false;
+    scheduleTokenExpiryCheck(token);
+    completeLogin();
   }
 
   loginForm.onsubmit = async function(e) {
@@ -603,28 +909,43 @@ document.addEventListener('DOMContentLoaded', function() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
-    const response = await fetch('/login', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ username, password }),
-    });
+    startLoading();
+    let response;
+    try {
+      response = await fetch('/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username, password }),
+      });
+    } finally {
+      stopLoading();
+    }
 
     if (response.ok) {
-      const { token } = await response.json();
-      localStorage.setItem('token', token);
+      const payload = await response.json();
+      try {
+        storeTokens(payload);
+      } catch (error) {
+        alert('Unable to start session. Please try again.');
+        return;
+      }
       closeModal(loginModal);
-      addEventButton.style.display = 'block';
-      calendar.refetchEvents();
+      completeLogin();
     } else {
       alert('Invalid username or password');
     }
-  }
+  };
 
   const logoutButton = document.getElementById('logoutButton');
-  logoutButton.onclick = function() {
-    localStorage.removeItem('token');
+  logoutButton.onclick = async function() {
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    clearStoredTokens();
+    hasAuthError = false;
+    if (storedRefreshToken) {
+      await revokeRefreshToken(storedRefreshToken);
+    }
     location.reload();
-  }
+  };
 
   if (checkDueTasksButton) {
     checkDueTasksButton.onclick = async function() {
@@ -734,4 +1055,5 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   calendar.render();
+  initCollapsiblePanels();
 });

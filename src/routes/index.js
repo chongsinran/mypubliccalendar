@@ -1,17 +1,15 @@
 const express = require('express');
+
 const router = express.Router();
 const eventsController = require('../controllers/events');
 const telegramController = require('../controllers/telegram');
-
 const authController = require('../controllers/auth');
-
-// Auth route
-router.post('/login', authController.login);
-
 const authenticateJWT = require('../middleware/auth');
 
-// Auth route
+// Auth routes
 router.post('/login', authController.login);
+router.post('/refresh', authController.refresh);
+router.post('/logout', authController.logout);
 
 // Event routes
 router.get('/events', authenticateJWT, eventsController.getEvents);

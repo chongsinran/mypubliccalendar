@@ -42,69 +42,136 @@
 
 
 
-      <section class="panel filter-panel">
+      <section class="panel filter-panel" data-collapsible>
         <div class="panel-header">
-          <div>
-            <h2>Filter Tasks</h2>
-            <p>Combine workflow status and task type to narrow the calendar view.</p>
-          </div>
+          <div class="panel-title">Filter Tasks</div>
+          <button
+            class="collapsible-trigger"
+            type="button"
+            aria-expanded="true"
+            aria-controls="filterPanelContent"
+            data-collapsible-trigger="filterPanelContent"
+          >
+            <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span class="sr-only">Toggle filter panel</span>
+          </button>
         </div>
-        <div class="filter-groups">
-          <div class="filter-group">
-            <div class="filter-group-header">
-              <h3>Progress Status</h3>
-              <label class="select-toggle">
-                <input type="checkbox" id="select-all-status" />
-                <span>Select All</span>
-              </label>
+        <div class="collapsible-content" id="filterPanelContent" data-collapsible-content>
+          <div class="filter-groups">
+            <div class="filter-group">
+              <div class="filter-group-header">
+                <h3>Progress Status</h3>
+                <label class="select-toggle">
+                  <input type="checkbox" id="select-all-status" />
+                  <span>Select All</span>
+                </label>
+              </div>
+              <div class="filter-options status-chip-grid" data-filter="status"></div>
             </div>
-            <div class="filter-options status-chip-grid" data-filter="status"></div>
-          </div>
-          <div class="filter-group">
-            <div class="filter-group-header">
-              <h3>Task Type</h3>
-              <label class="select-toggle">
-                <input type="checkbox" id="select-all-type" />
-                <span>Select All</span>
-              </label>
+            <div class="filter-group">
+              <div class="filter-group-header">
+                <h3>Task Type</h3>
+                <label class="select-toggle">
+                  <input type="checkbox" id="select-all-type" />
+                  <span>Select All</span>
+                </label>
+              </div>
+              <div class="filter-options type-chip-grid" data-filter="type"></div>
             </div>
-            <div class="filter-options type-chip-grid" data-filter="type"></div>
           </div>
         </div>
       </section>
 
-      <section class="panel calendar-panel">
-        <div id="calendar"></div>
+      <section class="panel calendar-panel" data-collapsible>
+        <div class="panel-header">
+          <div class="panel-title">Calendar</div>
+          <button
+            class="collapsible-trigger"
+            type="button"
+            aria-expanded="true"
+            aria-controls="calendarPanelContent"
+            data-collapsible-trigger="calendarPanelContent"
+          >
+            <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span class="sr-only">Toggle calendar panel</span>
+          </button>
+        </div>
+        <div class="collapsible-content" id="calendarPanelContent" data-collapsible-content>
+          <div id="calendar"></div>
+        </div>
       </section>
       <div class="summary-grid">
-        <section class="panel today-summary">
+        <section class="panel today-summary" data-collapsible>
           <div class="panel-header summary-header">
-            <div>
-              <h2>Today's Focus</h2>
-              <p>Snapshot of tasks spanning today with current filters.</p>
+            <div class="panel-title">Today's Focus</div>
+            <div class="panel-header-actions">
+              <span class="summary-total" id="todaySummaryTotal">0 tasks</span>
+              <button
+                class="collapsible-trigger"
+                type="button"
+                aria-expanded="true"
+                aria-controls="todaySummaryContent"
+                data-collapsible-trigger="todaySummaryContent"
+              >
+                <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                <span class="sr-only">Toggle today's focus panel</span>
+              </button>
             </div>
-            <span class="summary-total" id="todaySummaryTotal">0 tasks</span>
           </div>
-          <ul class="summary-list" id="todaySummaryList"></ul>
-          <p class="summary-empty" id="todaySummaryEmpty">No tasks scheduled for today.</p>
+          <div class="collapsible-content" id="todaySummaryContent" data-collapsible-content>
+            <ul class="summary-list" id="todaySummaryList"></ul>
+            <p class="summary-empty" id="todaySummaryEmpty">No tasks scheduled for today.</p>
+          </div>
         </section>
 
-        <section class="panel week-summary">
+        <section class="panel week-summary" data-collapsible>
           <div class="panel-header summary-header">
-            <div>
-              <h2>Weekly Focus</h2>
-              <p>Track commitments for the current week (Mon–Sun).</p>
-            </div>
+            <div class="panel-title">Weekly Focus</div>
+            <button
+              class="collapsible-trigger"
+              type="button"
+              aria-expanded="true"
+              aria-controls="weekSummaryContent"
+              data-collapsible-trigger="weekSummaryContent"
+            >
+              <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+              </svg>
+              <span class="sr-only">Toggle weekly focus panel</span>
+            </button>
           </div>
-          <div class="week-grid" id="weekSummaryGrid"></div>
+          <div class="collapsible-content" id="weekSummaryContent" data-collapsible-content>
+            <div class="week-grid" id="weekSummaryGrid"></div>
+          </div>
         </section>
       </div>
-      <section class="panel footer-actions">
-        <div class="footer-meta">
-          <h3>Need a fresh start?</h3>
-          <p>Log out to switch accounts or test the onboarding flow.</p>
+      <section class="panel footer-actions" data-collapsible>
+        <div class="panel-header">
+          <div class="footer-meta panel-title">Need a fresh start?</div>
+          <button
+            class="collapsible-trigger"
+            type="button"
+            aria-expanded="true"
+            aria-controls="footerActionsContent"
+            data-collapsible-trigger="footerActionsContent"
+          >
+            <svg class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            <span class="sr-only">Toggle logout panel</span>
+          </button>
         </div>
-        <button id="logoutButton" class="btn-danger">Logout</button>
+        <div class="collapsible-content" id="footerActionsContent" data-collapsible-content>
+          <div class="footer-actions-body">
+            <button id="logoutButton" class="btn-danger">Logout</button>
+          </div>
+        </div>
       </section>
 
       <footer class="page-footer">
@@ -113,6 +180,13 @@
     </div>
 
     <button id="addEventButton">+ Event / <strong>Task</strong></button>
+
+    <div id="globalLoading" class="loading-overlay" aria-hidden="true">
+      <div class="loading-content" role="status" aria-live="polite">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <p class="loading-text">Loading&hellip;</p>
+      </div>
+    </div>
 
     <!-- View/Edit Event Modal -->
     <div id="eventModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
