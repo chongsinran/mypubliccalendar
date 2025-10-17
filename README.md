@@ -19,7 +19,7 @@ A full-stack web application that provides a calendar for project management.
 *   **🗓️ Calendar View:** View all your events in a monthly calendar view.
 *   **➕ Add, Edit, and Delete Events:** Easily add, edit, and delete events.
 *   **📝 Event Details:** View the details of an event, including the title, description, start date, end date, and status.
-*   **🎨 Status Colors:** Different colors for different statuses (pending, in-progress, completed, bugged, announcement, scheduled-task).
+*   **🎨 Task Type Colors:** Feature, Bug, Scheduled, and Announcement items surface with distinct colour accents while statuses track progress (pending, in-progress, complete, rejected).
 *   **🔄 Drag and Drop:** Drag and drop events to change their dates.
 *   **↔️ Resize Events:** Resize events to extend or shorten their duration.
 *   **☀️ All-Day Events:** Create all-day events with no time component.

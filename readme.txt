@@ -5,7 +5,7 @@ This project is a full-stack web application that provides a calendar for projec
 Features:
 - Add, edit, and delete events.
 - View event details.
-- Update event status (pending, in-progress, completed, bugged, announcement, scheduled-task).
+- Update event status (pending, in-progress, complete, rejected) and task type (feature, bug, scheduled, announcement).
 - Different colors for different statuses.
 - Drag and drop events to change their dates.
 - Resize events to extend or shorten their duration.

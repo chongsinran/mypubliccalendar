@@ -13,7 +13,10 @@ const startScheduler = () => {
         if (rows.length > 0) {
           const { bot_token, chat_id } = rows[0];
           const today = moment().format('YYYY-MM-DD');
-          const { rows: eventRows } = await pool.query('SELECT * FROM events WHERE end_date = $1 AND status != $2', [today, 'completed']);
+          const { rows: eventRows } = await pool.query(
+            'SELECT * FROM events WHERE end_date = $1 AND status NOT IN ($2, $3)',
+            [today, 'complete', 'rejected']
+          );
 
           if (eventRows.length > 0) {
             let message = `*Tasks Due Today (${today}):*\n\n`;

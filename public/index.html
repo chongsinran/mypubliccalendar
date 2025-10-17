@@ -8,7 +8,10 @@
     <!-- Montserrat -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- FullCalendar v6 -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
@@ -20,31 +23,104 @@
     <link rel="stylesheet" href="style.css" />
     <script src="script.js" defer></script>
   </head>
-  <body>
-    <div class="filter-container">
-      <div class="filter-header" style="margin-bottom: 20px;">
-        <div style="font-size: 18px; font-weight: 700; ">Filter by Status</div>
-      
-        <div>
-          <button id="telegramConfigButton" class="telegram-config-button btn-animated-gradient-1" style=" font-size: 10px;">Telegram Config</button>
-          <button id="checkDueTasksButton" class="check-due-tasks-button btn-animated-gradient-2" style="  font-size: 10px;">Check Due Tasks</button>
+  <body class="app-body">
+    <div class="app-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <h1>Project Calendar</h1>
+          <p>Keep everyone aligned with a shared roadmap and scheduled reminders.</p>
         </div>
-        
+        <div class="hero-actions">
+          <button id="telegramConfigButton" class="telegram-config-button btn-animated-gradient-1">
+            Telegram Config
+          </button>
+          <button id="checkDueTasksButton" class="check-due-tasks-button btn-animated-gradient-2">
+            Check Due <strong>Tasks</strong>
+          </button>
+        </div>
+      </header>
+
+
+
+      <section class="panel filter-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Filter Tasks</h2>
+            <p>Combine workflow status and task type to narrow the calendar view.</p>
+          </div>
+        </div>
+        <div class="filter-groups">
+          <div class="filter-group">
+            <div class="filter-group-header">
+              <h3>Progress Status</h3>
+              <label class="select-toggle">
+                <input type="checkbox" id="select-all-status" />
+                <span>Select All</span>
+              </label>
+            </div>
+            <div class="filter-options status-chip-grid" data-filter="status"></div>
+          </div>
+          <div class="filter-group">
+            <div class="filter-group-header">
+              <h3>Task Type</h3>
+              <label class="select-toggle">
+                <input type="checkbox" id="select-all-type" />
+                <span>Select All</span>
+              </label>
+            </div>
+            <div class="filter-options type-chip-grid" data-filter="type"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel calendar-panel">
+        <div id="calendar"></div>
+      </section>
+      <div class="summary-grid">
+        <section class="panel today-summary">
+          <div class="panel-header summary-header">
+            <div>
+              <h2>Today's Focus</h2>
+              <p>Snapshot of tasks spanning today with current filters.</p>
+            </div>
+            <span class="summary-total" id="todaySummaryTotal">0 tasks</span>
+          </div>
+          <ul class="summary-list" id="todaySummaryList"></ul>
+          <p class="summary-empty" id="todaySummaryEmpty">No tasks scheduled for today.</p>
+        </section>
+
+        <section class="panel week-summary">
+          <div class="panel-header summary-header">
+            <div>
+              <h2>Weekly Focus</h2>
+              <p>Track commitments for the current week (Mon–Sun).</p>
+            </div>
+          </div>
+          <div class="week-grid" id="weekSummaryGrid"></div>
+        </section>
       </div>
-      <div class="filter-options">
-        <label><input type="checkbox" id="select-all-filters"> Select All</label>
-      </div>
+      <section class="panel footer-actions">
+        <div class="footer-meta">
+          <h3>Need a fresh start?</h3>
+          <p>Log out to switch accounts or test the onboarding flow.</p>
+        </div>
+        <button id="logoutButton" class="btn-danger">Logout</button>
+      </section>
+
+      <footer class="page-footer">
+        <p>&copy; <span id="currentYear"></span> Project Calendar. Built for focused teams.</p>
+      </footer>
     </div>
 
-    <div id="calendar"></div>
+    <button id="addEventButton">+ Event / <strong>Task</strong></button>
 
-   
     <!-- View/Edit Event Modal -->
     <div id="eventModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
       <div class="modal-content">
         <div class="modal-header">
           <div class="modal-title-wrap">
             <h2 id="modalTitle">Event Details</h2>
+            <p class="modal-subtitle">Edit titles, dates, and status for this calendar entry.</p>
           </div>
           <button class="close-button" aria-label="Close modal">&times;</button>
         </div>
@@ -73,32 +149,47 @@
               </div>
 
               <div class="field-group field--full">
+                <label>Task Type</label>
+                <div class="pill-picker type-picker">
+                  <button type="button" class="pill-option type-option selected" data-type="feature">
+                    <span class="pill-chip type-chip">Feature</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="pill-option type-option" data-type="bug">
+                    <span class="pill-chip type-chip">Bug</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="pill-option type-option" data-type="scheduled">
+                    <span class="pill-chip type-chip">Scheduled</span>
+                    <span class="tick">✔</span>
+                  </button>
+                  <button type="button" class="pill-option type-option" data-type="announcement">
+                    <span class="pill-chip type-chip">Announcement</span>
+                    <span class="tick">✔</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field-group field--full">
                 <label>Status</label>
-                <div class="status-picker">
-                  <button type="button" class="status-option" data-status="pending">
-                    <span class="status-chip is-pending">Pending</span>
+                <div class="pill-picker status-picker">
+                  <button type="button" class="pill-option status-option selected" data-status="pending">
+                    <span class="pill-chip status-chip status-chip--pending">Pending</span>
                     <span class="tick">✔</span>
                   </button>
-                  <button type="button" class="status-option" data-status="in-progress">
-                    <span class="status-chip is-progress">In Progress</span>
+                  <button type="button" class="pill-option status-option" data-status="in-progress">
+                    <span class="pill-chip status-chip status-chip--in-progress">In Progress</span>
                     <span class="tick">✔</span>
                   </button>
-                  <button type="button" class="status-option" data-status="completed">
-                    <span class="status-chip is-completed">Completed</span>
+                  <button type="button" class="pill-option status-option" data-status="complete">
+                    <span class="pill-chip status-chip status-chip--complete">Complete</span>
                     <span class="tick">✔</span>
                   </button>
-                  <button type="button" class="status-option" data-status="bugged">
-                    <span class="status-chip is-bugged">Bugged</span>
+                  <button type="button" class="pill-option status-option" data-status="rejected">
+                    <span class="pill-chip status-chip status-chip--rejected">Rejected</span>
                     <span class="tick">✔</span>
                   </button>
-                  <button type="button" class="status-option" data-status="announcement">
-                    <span class="status-chip is-announcement">Announcement</span>
-                    <span class="tick">✔</span>
-                  </button>
-                  <button type="button" class="status-option" data-status="scheduled-task">
-                    <span class="status-chip is-scheduled-task">Scheduled Task</span>
-                    <span class="tick">✔</span>
-                  </button>                </div>
+                </div>
               </div>
             </div>
           </form>
@@ -112,52 +203,48 @@
       </div>
     </div>
 
-    <button id="addEventButton">+ Event / Task</button>
-
-    <div style="display: flex;width: 100%; margin-top:50px; justify-content: center;">
-      <button id="logoutButton" class="btn-danger"  >Logout</button>
-    </div>
-    
-    <footer class="page-footer">
-      <p>&copy; <span id="currentYear"></span> Project Calendar. All rights reserved.</p>
-    </footer>
-
     <!-- Telegram Config Modal -->
     <div id="telegramModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="telegramModalTitle">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="telegramModalTitle">Telegram Configuration</h2>
+          <div class="modal-title-wrap">
+            <h2 id="telegramModalTitle">Telegram Configuration</h2>
+            <p class="modal-subtitle">Add your bot token and chat ID to receive reminders.</p>
+          </div>
           <button class="close-button" aria-label="Close modal">&times;</button>
         </div>
-        <div class="modal-body">
-          <div class="field-group">
-            <label for="botToken">Bot Token</label>
-            <input type="text" id="botToken" placeholder="Enter your Telegram bot token">
+        <div class="modal-container">
+          <div class="modal-body">
+            <div class="field-group">
+              <label for="botToken">Bot Token</label>
+              <input type="text" id="botToken" placeholder="Enter your Telegram bot token" />
+            </div>
+            <div class="field-group">
+              <label for="chatId">Chat ID</label>
+              <input type="text" id="chatId" placeholder="Enter your Telegram chat ID" />
+            </div>
           </div>
-          <div class="field-group">
-            <label for="chatId">Chat ID</label>
-            <input type="text" id="chatId" placeholder="Enter your Telegram chat ID">
+          <div class="modal-footer">
+            <button type="button" id="getChatIdButton" class="btn-secondary">Get Latest Chat ID</button>
+            <button type="button" id="testSendButton" class="btn-secondary">Test Send</button>
+            <div class="flex-grow"></div>
+            <button type="button" id="saveTelegramConfig" class="btn-primary">Save</button>
           </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" id="getChatIdButton" class="btn-secondary">Get Latest Chat ID</button>
-          <button type="button" id="testSendButton" class="btn-secondary">Test Send</button>
-          <div class="flex-grow"></div>
-          <button type="button" id="saveTelegramConfig" class="btn-primary">Save</button>
         </div>
       </div>
     </div>
-
-   
 
     <!-- Login Modal -->
     <div id="loginModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="loginModalTitle">
       <div class="modal-content">
         <div class="modal-header">
-          <h2 id="loginModalTitle">Login</h2>
+          <div class="modal-title-wrap">
+            <h2 id="loginModalTitle">Login</h2>
+            <p class="modal-subtitle">Sign in with the admin credentials configured for this instance.</p>
+          </div>
         </div>
-        <div class="modal-body">
-          <form id="loginForm">
+        <div class="modal-container">
+          <form id="loginForm" class="modal-body">
             <div class="field-group">
               <label for="username">Username</label>
               <input type="text" id="username" required>
@@ -166,10 +253,10 @@
               <label for="password">Password</label>
               <input type="password" id="password" required>
             </div>
-            <div class="modal-footer">
-              <button type="submit" class="btn-primary">Login</button>
-            </div>
           </form>
+          <div class="modal-footer">
+            <button type="submit" form="loginForm" class="btn-primary">Login</button>
+          </div>
         </div>
       </div>
     </div>

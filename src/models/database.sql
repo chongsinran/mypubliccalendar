@@ -5,7 +5,8 @@ CREATE TABLE events (
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     color VARCHAR(7),
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'in-progress', 'completed', 'bugged', 'announcement', 'scheduled-task'))
+    task_type VARCHAR(20) DEFAULT 'feature' CHECK (task_type IN ('feature', 'bug', 'scheduled', 'announcement')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'in-progress', 'complete', 'rejected'))
 );
 
 CREATE TABLE telegram_config (
