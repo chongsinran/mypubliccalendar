@@ -31,6 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
   ];
   const globalLoadingOverlay = document.getElementById('globalLoading');
   let activeLoadingRequests = 0;
+  const COLLAPSE_STORAGE_KEY = 'calendar_panel_states';
+  let collapseStateCache = null;
 
   function updateLoadingOverlay() {
     if (!globalLoadingOverlay) return;
@@ -51,6 +53,41 @@ document.addEventListener('DOMContentLoaded', function() {
   function stopLoading() {
     activeLoadingRequests = Math.max(0, activeLoadingRequests - 1);
     updateLoadingOverlay();
+  }
+
+  function readCollapseStates() {
+    if (collapseStateCache) {
+      return collapseStateCache;
+    }
+    try {
+      const raw = localStorage.getItem(COLLAPSE_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          collapseStateCache = parsed;
+          return collapseStateCache;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to read panel states from storage', error);
+    }
+    collapseStateCache = {};
+    return collapseStateCache;
+  }
+
+  function persistCollapseStates() {
+    if (!collapseStateCache) return;
+    try {
+      localStorage.setItem(COLLAPSE_STORAGE_KEY, JSON.stringify(collapseStateCache));
+    } catch (error) {
+      console.warn('Failed to persist panel states', error);
+    }
+  }
+
+  function setCollapseState(panelId, isCollapsed) {
+    const states = readCollapseStates();
+    states[panelId] = Boolean(isCollapsed);
+    persistCollapseStates();
   }
 
   function collapseContent(content, panel, trigger) {
@@ -89,26 +126,67 @@ document.addEventListener('DOMContentLoaded', function() {
     content.addEventListener('transitionend', handleTransitionEnd);
   }
 
+  function applyCollapseState(content, panel, trigger, shouldCollapse, disableAnimation = false) {
+    if (!content || !trigger) return;
+    let previousTransition;
+    if (disableAnimation) {
+      previousTransition = content.style.transition;
+      content.style.transition = 'none';
+    }
+    if (shouldCollapse) {
+      content.dataset.collapsed = 'true';
+      content.classList.add('is-collapsed');
+      content.setAttribute('aria-hidden', 'true');
+      content.style.maxHeight = '0px';
+      trigger.setAttribute('aria-expanded', 'false');
+      if (panel) panel.classList.add('is-collapsed');
+    } else {
+      content.dataset.collapsed = 'false';
+      content.classList.remove('is-collapsed');
+      content.setAttribute('aria-hidden', 'false');
+      content.style.maxHeight = '';
+      trigger.setAttribute('aria-expanded', 'true');
+      if (panel) panel.classList.remove('is-collapsed');
+    }
+    if (disableAnimation) {
+      requestAnimationFrame(() => {
+        content.style.transition = previousTransition || '';
+      });
+    }
+  }
+
+  function scrollPanelIntoView(panel) {
+    if (!panel) return;
+    const top = panel.getBoundingClientRect().top + window.pageYOffset - 20;
+    window.scrollTo({
+      top: top < 0 ? 0 : top,
+      behavior: 'smooth',
+    });
+  }
+
   function initCollapsiblePanels() {
     const triggers = document.querySelectorAll('[data-collapsible-trigger]');
+    const storedStates = readCollapseStates();
     triggers.forEach(trigger => {
       const contentId = trigger.dataset.collapsibleTrigger;
       if (!contentId) return;
       const content = document.getElementById(contentId);
       if (!content) return;
       const panel = trigger.closest('.panel');
-      content.dataset.collapsed = 'false';
-      content.classList.remove('is-collapsed');
-      content.style.maxHeight = '';
-      content.setAttribute('aria-hidden', 'false');
-      trigger.setAttribute('aria-expanded', 'true');
-      if (panel) panel.classList.remove('is-collapsed');
+      const defaultCollapsed = contentId !== 'calendarPanelContent';
+      const shouldCollapse = Object.prototype.hasOwnProperty.call(storedStates, contentId)
+        ? Boolean(storedStates[contentId])
+        : defaultCollapsed;
+      applyCollapseState(content, panel, trigger, shouldCollapse, true);
       trigger.addEventListener('click', () => {
         const isCollapsed = content.dataset.collapsed === 'true';
         if (isCollapsed) {
           expandContent(content, panel, trigger);
+          setCollapseState(contentId, false);
+          scrollPanelIntoView(panel);
         } else {
           collapseContent(content, panel, trigger);
+          setCollapseState(contentId, true);
         }
       });
     });
@@ -357,6 +435,57 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  const TOOLTIP_VIEWPORT_PADDING = 12;
+
+  function adjustTooltipWithinViewport(tooltip) {
+    if (!tooltip) return;
+    tooltip.style.setProperty('--tooltip-shift', '0px');
+    const rect = tooltip.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    let shift = 0;
+    if (rect.left < TOOLTIP_VIEWPORT_PADDING) {
+      shift = TOOLTIP_VIEWPORT_PADDING - rect.left;
+    } else if (rect.right > viewportWidth - TOOLTIP_VIEWPORT_PADDING) {
+      shift = (viewportWidth - TOOLTIP_VIEWPORT_PADDING) - rect.right;
+    }
+    tooltip.style.setProperty('--tooltip-shift', `${shift}px`);
+  }
+
+  function attachTooltipHandlers(triggerEl, tooltipSelector) {
+    if (!triggerEl || triggerEl.dataset.tooltipBound === 'true') {
+      return;
+    }
+    const tooltip = typeof tooltipSelector === 'string'
+      ? triggerEl.querySelector(tooltipSelector)
+      : tooltipSelector;
+    if (!tooltip) {
+      return;
+    }
+
+    const adjust = () => adjustTooltipWithinViewport(tooltip);
+    const reset = () => tooltip.style.setProperty('--tooltip-shift', '0px');
+
+    triggerEl.addEventListener('mouseenter', adjust);
+    triggerEl.addEventListener('focusin', adjust);
+    triggerEl.addEventListener('touchstart', adjust, { passive: true });
+    triggerEl.addEventListener('mouseleave', reset);
+    triggerEl.addEventListener('focusout', reset);
+    triggerEl.addEventListener('touchend', reset);
+    triggerEl.addEventListener('touchcancel', reset);
+
+    triggerEl.__tooltipElement = tooltip;
+    triggerEl.dataset.tooltipBound = 'true';
+  }
+
   function updateTodaySummary(rawEvents = []) {
     if (!todaySummaryList || !todaySummaryEmpty || !todaySummaryTotal) return;
     const total = rawEvents.length;
@@ -377,8 +506,15 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     sortedEvents.forEach(evt => {
       const statusValue = (evt.status || 'pending');
+      const statusColor = getStatusColor(statusValue);
       const typeValue = (evt.task_type || evt.taskType || 'feature');
       const typeColor = getTypeColor(typeValue);
+      const titleText = evt.title || 'Untitled Task';
+      const safeTitle = escapeHtml(titleText);
+      const rawDescription = evt.description && String(evt.description).trim().length
+        ? evt.description
+        : 'No description provided.';
+      const safeDescription = escapeHtml(rawDescription).replace(/\n/g, '<br>');
       const li = document.createElement('li');
       li.className = 'summary-item';
       li.dataset.type = typeValue;
@@ -386,12 +522,16 @@ document.addEventListener('DOMContentLoaded', function() {
         <option value="${value}" ${value === statusValue ? 'selected' : ''}>${label}</option>
       `).join('');
       li.innerHTML = `
-        <span class="summary-dot" style="background:#fff; border:2px solid ${typeColor};"></span>
+        <span class="summary-dot" style="background:${statusColor}; border-color:${statusColor};"></span>
         <div class="summary-meta">
-          <span class="summary-label">${evt.title || 'Untitled Task'}</span>
+          <span class="summary-label" tabindex="0">${safeTitle}</span>
+          <span class="summary-tooltip" role="tooltip">
+            <span class="summary-tooltip-title">${safeTitle}</span>
+            <span class="summary-tooltip-desc">${safeDescription}</span>
+          </span>
           <div class="summary-subrow">
             <span class="summary-type type-chip" style="color:${typeColor}; border-color:${typeColor};">${formatTypeLabel(typeValue)}</span>
-            <select class="summary-status" data-id="${evt.id}">
+            <select class="summary-status" data-id="${evt.id}" data-status="${statusValue}">
               ${statusOptions}
             </select>
           </div>
@@ -399,6 +539,11 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="summary-count">${moment(evt.start).format('MMM D')}</span>
       `;
       todaySummaryList.appendChild(li);
+      const labelEl = li.querySelector('.summary-label');
+      const tooltipEl = li.querySelector('.summary-tooltip');
+      if (labelEl && tooltipEl) {
+        attachTooltipHandlers(labelEl, tooltipEl);
+      }
     });
   }
 
@@ -427,10 +572,24 @@ document.addEventListener('DOMContentLoaded', function() {
       const items = matches.slice(0, 3).map(evt => {
         const typeValue = evt.task_type || evt.taskType || 'feature';
         const typeColor = getTypeColor(typeValue);
+        const statusValue = evt.status || 'pending';
+        const statusColor = getStatusColor(statusValue);
+        const titleText = evt.title || 'Untitled Task';
+        const safeTitle = escapeHtml(titleText);
+        const rawDescription = evt.description && String(evt.description).trim().length
+          ? evt.description
+          : '-';
+        const safeDescription = escapeHtml(rawDescription).replace(/\n/g, '<br>');
         return `
           <li>
-            <span class="week-bullet" style="background:#fff; border:2px solid ${typeColor};"></span>
-            <span class="week-task">${evt.title || 'Untitled Task'}</span>
+            <span class="week-bullet" style="background:${statusColor}; border-color:${statusColor};"></span>
+            <span class="week-task" title="${safeTitle}" aria-label="${safeTitle}">
+              <span class="week-task-label">${safeTitle}</span>
+              <span class="week-task-tooltip" role="tooltip">
+                <span class="week-task-tooltip-title">${safeTitle}</span>
+                <span class="week-task-tooltip-desc">${safeDescription}</span>
+              </span>
+            </span>
             <span class="week-type type-chip" style="color:${typeColor}; border-color:${typeColor};">${formatTypeLabel(typeValue)}</span>
           </li>
         `;
@@ -451,6 +610,9 @@ document.addEventListener('DOMContentLoaded', function() {
         </ul>
       `;
       weekSummaryGrid.appendChild(card);
+      card.querySelectorAll('.week-task').forEach(taskEl => {
+        attachTooltipHandlers(taskEl, '.week-task-tooltip');
+      });
     });
   }
 
@@ -596,6 +758,9 @@ document.addEventListener('DOMContentLoaded', function() {
       const eventId = target.dataset.id;
       const newStatus = target.value;
       if (!eventId || !newStatus) return;
+      const previousStatus = target.dataset.status || target.getAttribute('data-status') || '';
+      target.dataset.status = newStatus;
+      target.setAttribute('data-status', newStatus);
       target.disabled = true;
       let didUpdate = false;
       try {
@@ -607,14 +772,28 @@ document.addEventListener('DOMContentLoaded', function() {
         didUpdate = true;
       } catch (err) {
         console.error('Failed to update status', err);
+        target.value = previousStatus || target.value;
       } finally {
         target.disabled = false;
         if (didUpdate) {
           calendar.refetchEvents();
+        } else {
+          if (previousStatus) {
+            target.dataset.status = previousStatus;
+            target.setAttribute('data-status', previousStatus);
+          }
         }
       }
     });
   }
+
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('[data-tooltip-bound="true"]').forEach(trigger => {
+      if (trigger.__tooltipElement) {
+        adjustTooltipWithinViewport(trigger.__tooltipElement);
+      }
+    });
+  });
 
   async function fetchWithToken(url, options = {}, allowRetry = true) {
     startLoading();
@@ -660,6 +839,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   let calendar = new FullCalendar.Calendar(calendarEl, {
     initialView: 'dayGridMonth',
+    height: 'auto',
+    contentHeight: 'auto',
+    expandRows: true,
     editable: true,
     selectable: true,
     droppable: true,
@@ -739,6 +921,43 @@ document.addEventListener('DOMContentLoaded', function() {
       info.el.querySelectorAll('.fc-event-title, .fc-event-time, .fc-event-main, .fc-event-title-container, .fc-event-main-frame').forEach(node => {
         node.style.color = typeColor;
       });
+      info.el.classList.add('calendar-event');
+      info.el.style.overflow = 'visible';
+      if (!info.el.getAttribute('tabindex')) {
+        info.el.setAttribute('tabindex', '0');
+      }
+
+      const harnessEl = info.el.parentElement;
+      if (harnessEl && harnessEl.classList && harnessEl.classList.contains('fc-daygrid-event-harness')) {
+        harnessEl.style.overflow = 'visible';
+      }
+
+      const existingTooltip = info.el.querySelector('.calendar-event-tooltip');
+      if (existingTooltip) {
+        existingTooltip.remove();
+      }
+
+      const titleText = info.event.title || 'Untitled Task';
+      const safeTitle = escapeHtml(titleText);
+      const rawDescription = info.event.extendedProps.description && String(info.event.extendedProps.description).trim().length
+        ? info.event.extendedProps.description
+        : '-';
+      const safeDescription = escapeHtml(rawDescription).replace(/\n/g, '<br>');
+      const statusLabel = formatStatusLabel(info.event.extendedProps.status);
+      const typeLabel = formatTypeLabel(info.event.extendedProps.taskType);
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'calendar-event-tooltip';
+      tooltip.innerHTML = `
+        <span class="calendar-event-tooltip-title">${safeTitle}</span>
+        <span class="calendar-event-tooltip-meta">
+          <span class="calendar-event-tooltip-chip" style="border-color:${typeColor}; color:${typeColor};">${typeLabel}</span>
+          <span class="calendar-event-tooltip-chip calendar-event-tooltip-chip--status" style="border-color:${statusColor}; color:${statusColor};">${statusLabel}</span>
+        </span>
+        <span class="calendar-event-tooltip-desc">${safeDescription}</span>
+      `;
+      info.el.appendChild(tooltip);
+      attachTooltipHandlers(info.el, '.calendar-event-tooltip');
     },
 
     eventClick: function(info) {
