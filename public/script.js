@@ -582,7 +582,12 @@ document.addEventListener('DOMContentLoaded', function() {
   addEventButton.style.display = 'none';
 
   const loginForm = document.getElementById('loginForm');
-  const checkDueTasksButton = document.getElementById('checkDueTasksButton');
+ const checkDueTasksButton = document.getElementById('checkDueTasksButton');
+  const telegramConfigButton = document.getElementById('telegramConfigButton');
+  const telegramModal = document.getElementById('telegramModal');
+  const getChatIdButton = document.getElementById('getChatIdButton');
+  const testSendButton = document.getElementById('testSendButton');
+  const saveTelegramConfigButton = document.getElementById('saveTelegramConfig');
 
   // Check if the user is already logged in
   const token = localStorage.getItem('token');
@@ -631,6 +636,88 @@ document.addEventListener('DOMContentLoaded', function() {
         alert(data.message);
       } catch (error) {
         alert('An error occurred while checking for due tasks.');
+      }
+    };
+  }
+
+  if (telegramConfigButton && telegramModal) {
+    telegramConfigButton.addEventListener('click', async () => {
+      try {
+        const response = await fetchWithToken('/telegram-config');
+        if (response.ok) {
+          const config = await response.json();
+          document.getElementById('botToken').value = config.bot_token || '';
+          document.getElementById('chatId').value = config.chat_id || '';
+        }
+      } catch (err) {
+        console.error('Failed to load telegram config', err);
+      }
+      telegramModal.style.display = 'flex';
+    });
+  }
+
+  if (getChatIdButton) {
+    getChatIdButton.onclick = async function() {
+      const botToken = document.getElementById('botToken').value.trim();
+      if (!botToken) {
+        alert('Enter your bot token first.');
+        return;
+      }
+      try {
+        const response = await fetchWithToken(`/latest-chat-id?botToken=${encodeURIComponent(botToken)}`);
+        const data = await response.json();
+        if (response.ok && data.chatId) {
+          document.getElementById('chatId').value = data.chatId;
+        } else {
+          alert(data.error || 'Unable to fetch chat ID.');
+        }
+      } catch (error) {
+        alert('An error occurred while fetching the chat ID.');
+      }
+    };
+  }
+
+  if (testSendButton) {
+    testSendButton.onclick = async function() {
+      const botToken = document.getElementById('botToken').value.trim();
+      const chatId = document.getElementById('chatId').value.trim();
+      if (!botToken || !chatId) {
+        alert('Enter both bot token and chat ID.');
+        return;
+      }
+      try {
+        const response = await fetchWithToken('/test-telegram', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ botToken, chatId }),
+        });
+        const data = await response.json();
+        alert(data.message || 'Test sent.');
+      } catch (error) {
+        alert('An error occurred while sending the test message.');
+      }
+    };
+  }
+
+  if (saveTelegramConfigButton) {
+    saveTelegramConfigButton.onclick = async function() {
+      const botToken = document.getElementById('botToken').value.trim();
+      const chatId = document.getElementById('chatId').value.trim();
+      if (!botToken || !chatId) {
+        alert('Both bot token and chat ID are required.');
+        return;
+      }
+      try {
+        const response = await fetchWithToken('/telegram-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ botToken, chatId }),
+        });
+        const data = await response.json();
+        alert(data.message || 'Configuration saved.');
+        closeModal(telegramModal);
+      } catch (error) {
+        alert('An error occurred while saving the configuration.');
       }
     };
   }
